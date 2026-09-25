@@ -70,9 +70,3 @@ pip install pandas numpy scikit-learn matplotlib seaborn ipywidgets
 jupyter notebook ML_ASSIGNMENT_2_DOCUMENTED.ipynb
 ```
 Run all cells top to bottom (Kernel → Restart Kernel and Run All Cells).
-
-
-## Limitations
-
-- Dates and weather values are simulated (see Dataset Note above).
-- The chat assistant answers from precomputed aggregate statistics embedded in the page, not a live model call, so it works with zero backend/server.

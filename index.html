@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onion Price Intelligence</title>
+<style>
+:root{
+  --bg:#1f1520; --panel:#2a1c2b; --ink:#f3ead9; --muted:#c9b8b0;
+  --gold:#d9a441; --plum:#8c3b5e; --line:#4a3548;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f6efe4; --panel:#ffffff; --ink:#241521; --muted:#6b5a5f;
+    --gold:#a66a1e; --plum:#7a2f4f; --line:#e3d6c9;
+  }
+}
+:root[data-theme="dark"]{ --bg:#1f1520; --panel:#2a1c2b; --ink:#f3ead9; --muted:#c9b8b0; --gold:#d9a441; --plum:#8c3b5e; --line:#4a3548;}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Iowan Old Style',serif;line-height:1.5;}
+.wrap{max-width:980px;margin:0 auto;padding:2.5rem 1.5rem 4rem;}
+h1{font-size:2.1rem;margin:0 0 .3rem;font-weight:600;}
+.sub{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.95rem;margin:0 0 2.2rem;max-width:640px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:680px){.grid{grid-template-columns:1fr;}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1.3rem 1.4rem;}
+.card h2{font-size:1rem;margin:0 0 .9rem;font-weight:600;font-family:Helvetica,Arial,sans-serif;color:var(--gold);}
+.stat-row{display:flex;justify-content:space-between;gap:1rem;margin-bottom:1.6rem;}
+.stat{flex:1;text-align:left;}
+.stat .num{font-size:1.7rem;font-weight:600;}
+.stat .lbl{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.78rem;}
+svg text{font-family:Helvetica,Arial,sans-serif;}
+.bar-label{font-size:11px;fill:var(--muted);}
+.section-title{font-family:Helvetica,Arial,sans-serif;text-transform:none;font-size:1.3rem;margin:2.6rem 0 1rem;color:var(--ink);border-top:1px solid var(--line);padding-top:2rem;}
+.chat-shell{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+.chat-log{height:280px;overflow-y:auto;padding:1rem 1.2rem;font-family:Helvetica,Arial,sans-serif;font-size:.92rem;}
+.msg{margin-bottom:.9rem;max-width:85%;}
+.msg.user{margin-left:auto;text-align:right;}
+.msg .bubble{display:inline-block;padding:.55rem .8rem;border-radius:10px;background:var(--line);}
+.msg.user .bubble{background:var(--plum);color:#fff;}
+.chat-input-row{display:flex;border-top:1px solid var(--line);}
+.chat-input-row input{flex:1;border:0;background:transparent;color:var(--ink);padding:.9rem 1rem;font-family:Helvetica,Arial,sans-serif;font-size:.92rem;outline:none;}
+.chat-input-row button{border:0;background:var(--gold);color:#241521;font-weight:600;padding:0 1.3rem;cursor:pointer;font-family:Helvetica,Arial,sans-serif;}
+.hint{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.78rem;margin-top:.6rem;}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:.3rem .8rem;font-size:.78rem;font-family:Helvetica,Arial,sans-serif;color:var(--muted);cursor:pointer;margin:.2rem .3rem 0 0;}
+.chip:hover{border-color:var(--gold);color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Onion Price Intelligence</h1>
+  <p class="sub">A results dashboard and question-answering assistant built on one year of simulated weekly mandi price and weather data across nine states.</p>
+
+  <div class="stat-row" id="statRow"></div>
+
+  <div class="grid">
+    <div class="card"><h2>Average price by season</h2><svg id="seasonChart" viewBox="0 0 420 220" width="100%"></svg></div>
+    <div class="card"><h2>Average price by state</h2><svg id="stateChart" viewBox="0 0 420 220" width="100%"></svg></div>
+    <div class="card" style="grid-column:1/-1;"><h2>Monthly price trend</h2><svg id="trendChart" viewBox="0 0 860 220" width="100%"></svg></div>
+  </div>
+
+  <div class="section-title">Ask about onion prices</div>
+  <div class="chat-shell">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-row">
+      <input id="chatIn" type="text" placeholder="e.g. price in Kerala during monsoon">
+      <button id="chatBtn">Ask</button>
+    </div>
+  </div>
+  <div class="hint">Try:
+    <span class="chip" data-q="What is the price in Kerala during Monsoon?">price in Kerala during Monsoon</span>
+    <span class="chip" data-q="Average price in Rajasthan in Winter">price in Rajasthan in Winter</span>
+    <span class="chip" data-q="Price in Punjab">price in Punjab</span>
+  </div>
+  <p class="hint" style="margin-top:1.4rem;">This assistant retrieves matching aggregate statistics from the dataset (retrieval) and phrases them as an answer (generation) — a lightweight RAG pattern. Dates and weather values in the underlying dataset are simulated for this assignment.</p>
+</div>
+
+<script>
+const KB = {
+  season_avg: {"Monsoon":8193.1,"Post-Monsoon":5832.8,"Summer":6210.7,"Winter":5324.4},
+  state_avg: {"Bihar":4921.2,"Haryana":4482.2,"Himachal Pradesh":5802.7,"Keralam":6985.8,"Punjab":4035.7,"Rajasthan":2918.1,"Tamil Nadu":6798.6,"Uttarakhand":3456.2,"West Bengal":5002.6},
+  state_season_avg: {
+    "Bihar":{"Monsoon":6103.0,"Post-Monsoon":4292.6,"Summer":4709.6,"Winter":4063.8},
+    "Haryana":{"Monsoon":5544.5,"Post-Monsoon":4026.4,"Summer":4230.9,"Winter":3700.7},
+    "Himachal Pradesh":{"Monsoon":7272.6,"Post-Monsoon":5160.8,"Summer":5442.8,"Winter":4744.0},
+    "Keralam":{"Monsoon":8788.4,"Post-Monsoon":6172.3,"Summer":6673.8,"Winter":5556.4},
+    "Punjab":{"Monsoon":5057.7,"Post-Monsoon":3583.9,"Summer":3817.7,"Winter":3266.0},
+    "Rajasthan":{"Monsoon":3649.7,"Post-Monsoon":2595.9,"Summer":2772.0,"Winter":2354.8},
+    "Tamil Nadu":{"Monsoon":8493.1,"Post-Monsoon":6049.2,"Summer":6439.9,"Winter":5519.8},
+    "Uttarakhand":{"Monsoon":4332.3,"Post-Monsoon":3016.7,"Summer":3299.5,"Winter":2800.4},
+    "West Bengal":{"Monsoon":6368.9,"Post-Monsoon":4409.5,"Summer":4633.5,"Winter":4056.4}
+  },
+  monthly_trend: {"1":5336.2,"2":5323.4,"3":6213.2,"4":6217.8,"5":6202.5,"6":8210.0,"7":8207.8,"8":8179.8,"9":8173.1,"10":5840.0,"11":5827.1,"12":5313.5},
+  overall: {avg_price:6557.4,min_price:1084.8,max_price:11832.6}
+};
+
+function statRow(){
+  const el = document.getElementById('statRow');
+  const o = KB.overall;
+  const items = [["Rs. "+o.avg_price,"Average Modal Price"],["Rs. "+o.min_price,"Lowest recorded"],["Rs. "+o.max_price,"Highest recorded"]];
+  el.innerHTML = items.map(i=>`<div class="stat"><div class="num">${i[0]}</div><div class="lbl">${i[1]}</div></div>`).join('');
+}
+
+function barChart(svgId, dataObj, color){
+  const svg = document.getElementById(svgId);
+  const entries = Object.entries(dataObj);
+  const max = Math.max(...entries.map(e=>e[1]));
+  const w=420,h=220,pad=30,barW=(w-pad*2)/entries.length*0.6, gap=(w-pad*2)/entries.length;
+  let out = '';
+  entries.forEach((e,i)=>{
+    const bh = (e[1]/max)*(h-70);
+    const x = pad + i*gap + (gap-barW)/2;
+    const y = h-40-bh;
+    out += `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${color}" rx="2"></rect>`;
+    out += `<text x="${x+barW/2}" y="${h-22}" text-anchor="middle" class="bar-label">${e[0]}</text>`;
+    out += `<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" class="bar-label">${Math.round(e[1])}</text>`;
+  });
+  svg.innerHTML = out;
+}
+
+function lineChart(svgId, dataObj, color){
+  const svg = document.getElementById(svgId);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const vals = months.map((_,i)=>dataObj[String(i+1)]);
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const w=860,h=220,padL=40,padR=20,padT=20,padB=30;
+  const stepX = (w-padL-padR)/(vals.length-1);
+  const scaleY = v => padT + (1-(v-min)/(max-min))*(h-padT-padB);
+  let path = vals.map((v,i)=>`${i===0?'M':'L'} ${padL+i*stepX} ${scaleY(v)}`).join(' ');
+  let dots = vals.map((v,i)=>`<circle cx="${padL+i*stepX}" cy="${scaleY(v)}" r="3.5" fill="${color}"></circle>`).join('');
+  let labels = months.map((m,i)=>`<text x="${padL+i*stepX}" y="${h-8}" text-anchor="middle" class="bar-label">${m}</text>`).join('');
+  svg.innerHTML = `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5"></path>${dots}${labels}`;
+}
+
+statRow();
+barChart('seasonChart', KB.season_avg, 'var(--gold)'.trim()==='var(--gold)'?'#d9a441':'#d9a441');
+barChart('stateChart', KB.state_avg, '#8c3b5e');
+lineChart('trendChart', KB.monthly_trend, '#d9a441');
+
+// RAG-style chat
+const chatLog = document.getElementById('chatLog');
+const chatIn = document.getElementById('chatIn');
+const chatBtn = document.getElementById('chatBtn');
+
+function addMsg(role, text){
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role==='user'?'user':'bot');
+  div.innerHTML = `<span class="bubble">${text}</span>`;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function answerQuery(q){
+  const lower = q.toLowerCase();
+  const states = Object.keys(KB.state_avg);
+  const seasons = ["winter","summer","monsoon","post-monsoon"];
+  const matchedState = states.find(s => lower.includes(s.toLowerCase()));
+  const matchedSeason = seasons.find(s => lower.includes(s));
+
+  let price, label;
+  if(matchedState && matchedSeason){
+    const seasonKey = matchedSeason.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join('-');
+    price = KB.state_season_avg[matchedState][seasonKey];
+    label = `${matchedState} during ${seasonKey}`;
+  } else if(matchedState){
+    price = KB.state_avg[matchedState];
+    label = matchedState;
+  } else if(matchedSeason){
+    const seasonKey = matchedSeason.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join('-');
+    price = KB.season_avg[seasonKey];
+    label = `all states during ${seasonKey}`;
+  } else {
+    price = KB.overall.avg_price;
+    label = "the full dataset";
+  }
+  return `Average Modal Price for ${label}: Rs. ${price} per Quintal (Rs. ${(price/100).toFixed(2)} per kg).`;
+}
+
+function send(){
+  const q = chatIn.value.trim();
+  if(!q) return;
+  addMsg('user', q);
+  addMsg('bot', answerQuery(q));
+  chatIn.value = '';
+}
+chatBtn.addEventListener('click', send);
+chatIn.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click', ()=>{ chatIn.value = c.dataset.q; send(); });
+});
+addMsg('bot', "Ask me about onion prices by state or season — e.g. \"price in Kerala during monsoon\".");
+</script>
+</body>
+</html>

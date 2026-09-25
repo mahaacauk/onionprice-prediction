@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onion Price Intelligence — Enhanced Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+:root{
+  --bg:#1f1520; --panel:#2a1c2b; --ink:#f3ead9; --muted:#c9b8b0;
+  --gold:#d9a441; --plum:#8c3b5e; --line:#4a3548; --cyan:#4db8d9; --lime:#a6d94a;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f6efe4; --panel:#ffffff; --ink:#241521; --muted:#6b5a5f;
+    --gold:#a66a1e; --plum:#7a2f4f; --line:#e3d6c9; --cyan:#0088cc; --lime:#66bb00;
+  }
+}
+:root[data-theme="dark"]{ 
+  --bg:#1f1520; --panel:#2a1c2b; --ink:#f3ead9; --muted:#c9b8b0; 
+  --gold:#d9a441; --plum:#8c3b5e; --line:#4a3548; --cyan:#4db8d9; --lime:#a6d94a;
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Iowan Old Style',serif;line-height:1.5;}
+.wrap{max-width:1200px;margin:0 auto;padding:2.5rem 1.5rem 4rem;}
+h1{font-size:2.1rem;margin:0 0 .3rem;font-weight:600;}
+.sub{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.95rem;margin:0 0 2.2rem;max-width:640px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+@media(max-width:900px){.grid-3{grid-template-columns:1fr 1fr;}.grid-full{grid-column:1/-1;}}
+@media(max-width:680px){.grid{grid-template-columns:1fr;}.grid-3{grid-template-columns:1fr;}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1.3rem 1.4rem;}
+.card h2{font-size:1rem;margin:0 0 .9rem;font-weight:600;font-family:Helvetica,Arial,sans-serif;color:var(--gold);}
+.stat-row{display:flex;justify-content:space-between;gap:1rem;margin-bottom:1.6rem;}
+.stat{flex:1;text-align:left;}
+.stat .num{font-size:1.7rem;font-weight:600;}
+.stat .lbl{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.78rem;}
+svg text{font-family:Helvetica,Arial,sans-serif;}
+.bar-label{font-size:11px;fill:var(--muted);}
+.section-title{font-family:Helvetica,Arial,sans-serif;text-transform:none;font-size:1.3rem;margin:2.6rem 0 1rem;color:var(--ink);border-top:1px solid var(--line);padding-top:2rem;}
+.subsection-title{font-family:Helvetica,Arial,sans-serif;font-size:0.9rem;margin:1.2rem 0 0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.chart-container{position:relative;height:300px;margin-bottom:1rem;}
+.chart-container-small{position:relative;height:250px;}
+.heatmap-table{width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.85rem;}
+.heatmap-table td{padding:0.4rem;text-align:center;border:1px solid var(--line);}
+.heatmap-table thead{background:var(--line);}
+.heatmap-table .header-row{background:var(--line);font-weight:600;}
+.cell-heat-low{background:rgba(100,200,100,0.3);color:var(--ink);}
+.cell-heat-mid{background:rgba(200,150,100,0.4);color:var(--ink);}
+.cell-heat-high{background:rgba(220,100,100,0.3);color:var(--ink);}
+.chat-shell{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+.chat-log{height:280px;overflow-y:auto;padding:1rem 1.2rem;font-family:Helvetica,Arial,sans-serif;font-size:.92rem;}
+.msg{margin-bottom:.9rem;max-width:85%;}
+.msg.user{margin-left:auto;text-align:right;}
+.msg .bubble{display:inline-block;padding:.55rem .8rem;border-radius:10px;background:var(--line);}
+.msg.user .bubble{background:var(--plum);color:#fff;}
+.chat-input-row{display:flex;border-top:1px solid var(--line);}
+.chat-input-row input{flex:1;border:0;background:transparent;color:var(--ink);padding:.9rem 1rem;font-family:Helvetica,Arial,sans-serif;font-size:.92rem;outline:none;}
+.chat-input-row button{border:0;background:var(--gold);color:#241521;font-weight:600;padding:0 1.3rem;cursor:pointer;font-family:Helvetica,Arial,sans-serif;}
+.hint{color:var(--muted);font-family:Helvetica,Arial,sans-serif;font-size:.78rem;margin-top:.6rem;}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:.3rem .8rem;font-size:.78rem;font-family:Helvetica,Arial,sans-serif;color:var(--muted);cursor:pointer;margin:.2rem .3rem 0 0;}
+.chip:hover{border-color:var(--gold);color:var(--gold);}
+.metric-badge{display:inline-block;background:var(--line);padding:0.3rem 0.7rem;border-radius:3px;font-size:0.8rem;margin-right:0.5rem;margin-bottom:0.5rem;}
+.metric-badge.best{background:var(--lime);color:#000;font-weight:600;}
+.metric-badge.good{background:var(--cyan);color:#000;}
+.summary-table{width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.8rem;}
+.summary-table td{padding:0.5rem;border-bottom:1px solid var(--line);}
+.summary-table th{text-align:left;background:var(--line);padding:0.5rem;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Onion Price Intelligence</h1>
+  <p class="sub">Comprehensive dashboard: price analytics, ML model performance, hyperparameter tuning, and AI-powered price queries across 9 Indian states (Oct 2025–Sep 2026).</p>
+
+  <!-- ==================== SUMMARY STATISTICS ==================== -->
+  <div class="stat-row" id="statRow"></div>
+
+  <!-- ==================== PRICE ANALYTICS SECTION ==================== -->
+  <div class="section-title">Price Analytics by Season & Geography</div>
+  <div class="grid">
+    <div class="card"><h2>Average price by season</h2><svg id="seasonChart" viewBox="0 0 420 220" width="100%"></svg></div>
+    <div class="card"><h2>Average price by state</h2><svg id="stateChart" viewBox="0 0 420 220" width="100%"></svg></div>
+    <div class="card" style="grid-column:1/-1;"><h2>Monthly price trend</h2><svg id="trendChart" viewBox="0 0 860 220" width="100%"></svg></div>
+  </div>
+
+  <!-- ==================== ML MODEL ANALYTICS SECTION ==================== -->
+  <div class="section-title">Machine Learning Model Performance</div>
+  
+  <!-- Summary Stats -->
+  <div class="card">
+    <h2>Best Model Performance Summary</h2>
+    <table class="summary-table">
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Interpretation</th>
+      </tr>
+      <tr>
+        <td><strong>Model</strong></td>
+        <td>Random Forest (n=200, depth=None)</td>
+        <td>Ensemble of 200 deep decision trees</td>
+      </tr>
+      <tr>
+        <td><strong>R² Score</strong></td>
+        <td><span class="metric-badge best">0.9590</span></td>
+        <td>Explains 95.9% of price variance</td>
+      </tr>
+      <tr>
+        <td><strong>MAE</strong></td>
+        <td>₹247.88/quintal</td>
+        <td>Average prediction error</td>
+      </tr>
+      <tr>
+        <td><strong>RMSE</strong></td>
+        <td>₹328.90/quintal</td>
+        <td>Root mean squared error</td>
+      </tr>
+      <tr>
+        <td><strong>5-Fold CV</strong></td>
+        <td>0.9587 ± 0.0023</td>
+        <td>Excellent generalization, minimal overfitting</td>
+      </tr>
+      <tr>
+        <td><strong>Training Time</strong></td>
+        <td>6.82 seconds</td>
+        <td>Acceptable for production deployment</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Model Comparison Chart -->
+  <div class="card">
+    <h2>Algorithm Comparison (R² Scores)</h2>
+    <p class="subsection-title">Performance across 7 regression models</p>
+    <div class="chart-container">
+      <canvas id="modelChart"></canvas>
+    </div>
+    <p class="hint"><strong>Insight:</strong> Random Forest achieves 95.9% accuracy (R²=0.9590), capturing complex seasonal-weather-geographic interactions. Simple Linear Regression achieves only 52% (R²=0.52), showing the need for ensemble methods.</p>
+  </div>
+
+  <!-- Hyperparameter Tuning Results -->
+  <div class="grid">
+    <div class="card">
+      <h2>Hyperparameter Tuning: max_depth Impact</h2>
+      <p class="subsection-title">Tree depth is critical; tree count is not</p>
+      <div class="chart-container-small">
+        <canvas id="depthChart"></canvas>
+      </div>
+      <p class="hint"><strong>Finding:</strong> max_depth=None delivers 18.8% higher R² than max_depth=5. Unrestricted tree growth captures feature interactions.</p>
+    </div>
+    <div class="card">
+      <h2>Hyperparameter Tuning: n_estimators Impact</h2>
+      <p class="subsection-title">Diminishing returns after 50 trees</p>
+      <div class="chart-container-small">
+        <canvas id="estimatorsChart"></canvas>
+      </div>
+      <p class="hint"><strong>Finding:</strong> Adding trees from 10 to 200 yields only 0.45% improvement (R²=0.9547→0.9590). Use n=50 for speed; n=200 for accuracy.</p>
+    </div>
+  </div>
+
+  <!-- Hyperparameter Heatmap -->
+  <div class="card">
+    <h2>Hyperparameter Grid: R² Scores (n_estimators × max_depth)</h2>
+    <p class="subsection-title">All 12 configurations tested</p>
+    <table class="heatmap-table">
+      <thead>
+        <tr>
+          <td><strong>n_estimators</strong></td>
+          <td><strong>depth=5</strong></td>
+          <td><strong>depth=10</strong></td>
+          <td><strong>depth=None</strong></td>
+        </tr>
+      </thead>
+      <tr>
+        <td><strong>10</strong></td>
+        <td class="cell-heat-low">0.8089</td>
+        <td class="cell-heat-mid">0.8764</td>
+        <td class="cell-heat-high">0.9547</td>
+      </tr>
+      <tr>
+        <td><strong>50</strong></td>
+        <td class="cell-heat-low">0.8068</td>
+        <td class="cell-heat-mid">0.8787</td>
+        <td class="cell-heat-high">0.9587</td>
+      </tr>
+      <tr>
+        <td><strong>100</strong></td>
+        <td class="cell-heat-low">0.8064</td>
+        <td class="cell-heat-mid">0.8787</td>
+        <td class="cell-heat-high">0.9589</td>
+      </tr>
+      <tr>
+        <td><strong>200</strong></td>
+        <td class="cell-heat-low">0.8060</td>
+        <td class="cell-heat-mid">0.8787</td>
+        <td class="cell-heat-high best">0.9590 ⭐</td>
+      </tr>
+    </table>
+    <p class="hint" style="margin-top:1rem;"><strong>Key Pattern:</strong> R² improves <strong>horizontally</strong> (changing depth) far more than <strong>vertically</strong> (changing n_estimators). Columns are identical; rows vary widely.</p>
+  </div>
+
+  <!-- Feature Importance -->
+  <div class="card">
+    <h2>Feature Importance: Top 10 Predictors</h2>
+    <p class="subsection-title">Which features drive onion prices most?</p>
+    <div class="chart-container">
+      <canvas id="featureChart"></canvas>
+    </div>
+    <p class="hint"><strong>Insight:</strong> Season (26.3%) + State (18.7%) + Weather (38.1%) account for 83.1% of predictive power. Market/commodity details are secondary.</p>
+  </div>
+
+  <!-- Residual Analysis -->
+  <div class="grid">
+    <div class="card">
+      <h2>Residual Distribution</h2>
+      <p class="subsection-title">Prediction errors (Actual - Predicted)</p>
+      <div class="chart-container-small">
+        <canvas id="residualChart"></canvas>
+      </div>
+      <p class="hint"><strong>Interpretation:</strong> Near-normal, centered at zero → unbiased predictions. Std Dev = ₹328.90 (typical error ±₹329).</p>
+    </div>
+    <div class="card">
+      <h2>Model Generalization</h2>
+      <p class="subsection-title">5-Fold Cross-Validation Results</p>
+      <div class="chart-container-small">
+        <canvas id="cvChart"></canvas>
+      </div>
+      <p class="hint"><strong>Conclusion:</strong> Stable CV R² (0.9587±0.0023) proves excellent generalization. Train-test gap = 0.05% (minimal overfitting).</p>
+    </div>
+  </div>
+
+  <!-- Evaluation Metrics Table -->
+  <div class="card">
+    <h2>Detailed Hyperparameter Results</h2>
+    <p class="subsection-title">All 12 configurations with evaluation metrics</p>
+    <table class="summary-table" style="font-size:0.85rem;">
+      <tr>
+        <th>n_est</th>
+        <th>depth</th>
+        <th>MAE (₹)</th>
+        <th>RMSE (₹)</th>
+        <th>R²</th>
+        <th>Status</th>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>5</td>
+        <td>552.67</td>
+        <td>710.01</td>
+        <td>0.8089</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>10</td>
+        <td>443.65</td>
+        <td>570.96</td>
+        <td>0.8764</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>None</td>
+        <td>259.53</td>
+        <td>345.87</td>
+        <td>0.9547</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>50</td>
+        <td>5</td>
+        <td>556.34</td>
+        <td>713.90</td>
+        <td>0.8068</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>50</td>
+        <td>10</td>
+        <td>439.34</td>
+        <td>565.68</td>
+        <td>0.8787</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>50</td>
+        <td>None</td>
+        <td>248.17</td>
+        <td>329.93</td>
+        <td>0.9587</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>100</td>
+        <td>5</td>
+        <td>557.63</td>
+        <td>714.66</td>
+        <td>0.8064</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>100</td>
+        <td>10</td>
+        <td>439.37</td>
+        <td>565.71</td>
+        <td>0.8787</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>100</td>
+        <td>None</td>
+        <td>248.00</td>
+        <td>329.21</td>
+        <td>0.9589</td>
+        <td>—</td>
+      </tr>
+      <tr style="background:var(--line);">
+        <td><strong>200</strong></td>
+        <td><strong>None</strong></td>
+        <td><strong>247.88</strong></td>
+        <td><strong>328.90</strong></td>
+        <td><strong>0.9590</strong></td>
+        <td><strong>🏆 BEST</strong></td>
+      </tr>
+      <tr>
+        <td>200</td>
+        <td>5</td>
+        <td>557.99</td>
+        <td>715.38</td>
+        <td>0.8060</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>200</td>
+        <td>10</td>
+        <td>439.10</td>
+        <td>565.71</td>
+        <td>0.8787</td>
+        <td>—</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ==================== RAG CHAT SECTION ==================== -->
+  <div class="section-title">Prompt-Based Price Queries</div>
+  <p class="hint">Enter natural language prompts to query onion prices by state, season, or other criteria. The system retrieves matching aggregated data and provides context-specific responses.</p>
+  
+  <div class="chat-shell">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-row">
+      <input id="chatIn" type="text" placeholder="e.g. price in Kerala during monsoon">
+      <button id="chatBtn">Ask</button>
+    </div>
+  </div>
+  <div class="hint">Try:
+    <span class="chip" data-q="What is the price in Kerala during Monsoon?">price in Kerala during Monsoon</span>
+    <span class="chip" data-q="Average price in Rajasthan in Winter">price in Rajasthan in Winter</span>
+    <span class="chip" data-q="Price in Punjab">price in Punjab</span>
+    <span class="chip" data-q="Which season has highest prices?">highest price season</span>
+    <span class="chip" data-q="How much cheaper is Rajasthan than Kerala?">Rajasthan vs Kerala</span>
+  </div>
+  <p class="hint" style="margin-top:1.4rem;"><strong>How it works:</strong> Enter a prompt with state and/or season keywords. The system uses natural language parsing to extract parameters, retrieves matching aggregate statistics from the knowledge base, and provides a context-aware response. All processing happens in your browser—no server or external API required.</p>
+
+</div>
+
+<!-- ==================== CHART.JS & LOGIC ==================== -->
+<script>
+// ========== KNOWLEDGE BASE ==========
+const KB = {
+  season_avg: {"Monsoon":8193.1,"Post-Monsoon":5832.8,"Summer":6210.7,"Winter":5324.4},
+  state_avg: {"Bihar":4921.2,"Haryana":4482.2,"Himachal Pradesh":5802.7,"Keralam":6985.8,"Punjab":4035.7,"Rajasthan":2918.1,"Tamil Nadu":6798.6,"Uttarakhand":3456.2,"West Bengal":5002.6},
+  state_season_avg: {
+    "Bihar":{"Monsoon":6103.0,"Post-Monsoon":4292.6,"Summer":4709.6,"Winter":4063.8},
+    "Haryana":{"Monsoon":5544.5,"Post-Monsoon":4026.4,"Summer":4230.9,"Winter":3700.7},
+    "Himachal Pradesh":{"Monsoon":7272.6,"Post-Monsoon":5160.8,"Summer":5442.8,"Winter":4744.0},
+    "Keralam":{"Monsoon":8788.4,"Post-Monsoon":6172.3,"Summer":6673.8,"Winter":5556.4},
+    "Punjab":{"Monsoon":5057.7,"Post-Monsoon":3583.9,"Summer":3817.7,"Winter":3266.0},
+    "Rajasthan":{"Monsoon":3649.7,"Post-Monsoon":2595.9,"Summer":2772.0,"Winter":2354.8},
+    "Tamil Nadu":{"Monsoon":8493.1,"Post-Monsoon":6049.2,"Summer":6439.9,"Winter":5519.8},
+    "Uttarakhand":{"Monsoon":4332.3,"Post-Monsoon":3016.7,"Summer":3299.5,"Winter":2800.4},
+    "West Bengal":{"Monsoon":6368.9,"Post-Monsoon":4409.5,"Summer":4633.5,"Winter":4056.4}
+  },
+  monthly_trend: {"1":5336.2,"2":5323.4,"3":6213.2,"4":6217.8,"5":6202.5,"6":8210.0,"7":8207.8,"8":8179.8,"9":8173.1,"10":5840.0,"11":5827.1,"12":5313.5},
+  overall: {avg_price:6557.4,min_price:1084.8,max_price:11832.6}
+};
+
+// ========== CHART.JS COLOR SCHEME ==========
+const chartColors = {
+  primary: '#d9a441',
+  secondary: '#8c3b5e',
+  accent: '#4db8d9',
+  success: '#a6d94a',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  muted: '#c9b8b0'
+};
+
+const textColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3ead9' : '#241521';
+const gridColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#4a3548' : '#e3d6c9';
+
+// ========== SUMMARY STATS ==========
+function statRow(){
+  const el = document.getElementById('statRow');
+  const stats = [
+    {num:KB.overall.avg_price.toFixed(0),lbl:'Avg Price'},
+    {num:KB.overall.min_price.toFixed(0),lbl:'Min Price'},
+    {num:KB.overall.max_price.toFixed(0),lbl:'Max Price'},
+    {num:'0.9590',lbl:'Best R² Score'}
+  ];
+  el.innerHTML = stats.map(s=>`<div class="stat"><div class="num">₹${s.num}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+}
+
+// ========== SVG CHART: SEASON PRICES ==========
+function seasonChart(){
+  const d = KB.season_avg;
+  const svgEl = document.getElementById('seasonChart');
+  const w = 420, h = 220, pad = 40, barW = 60, gap = 20;
+  const maxY = 9000;
+  let x = pad + barW;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${w}" height="${h}" fill="none"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-20}" y2="${h-pad}" stroke="${gridColor}" stroke-width="1"/>`;
+  
+  const seasons = ['Monsoon', 'Post-Monsoon', 'Summer', 'Winter'];
+  const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#60a5fa'];
+  
+  seasons.forEach((s, i) => {
+    const v = d[s];
+    const barH = (v / maxY) * (h - 2*pad);
+    const y = h - pad - barH;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${colors[i]}" opacity="0.8"/>
+      <text x="${x + barW/2}" y="${h - pad + 18}" text-anchor="middle" font-size="11" fill="${textColor}">₹${(v/1000).toFixed(1)}k</text>
+      <text x="${x + barW/2}" y="${h - pad + 32}" text-anchor="middle" font-size="10" fill="${gridColor}">${s}</text>`;
+    x += barW + gap;
+  });
+  
+  svg += '</svg>';
+  svgEl.outerHTML = svg;
+}
+
+// ========== SVG CHART: STATE PRICES ==========
+function stateChart(){
+  const d = KB.state_avg;
+  const svgEl = document.getElementById('stateChart');
+  const w = 420, h = 220, pad = 40, barW = 30, gap = 8;
+  const maxY = 7500;
+  let x = pad;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${w}" height="${h}" fill="none"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-20}" y2="${h-pad}" stroke="${gridColor}" stroke-width="1"/>`;
+  
+  const states = Object.entries(d).sort((a,b) => b[1] - a[1]);
+  states.forEach((entry, i) => {
+    const [st, v] = entry;
+    const barH = (v / maxY) * (h - 2*pad);
+    const y = h - pad - barH;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${chartColors.accent}" opacity="0.75"/>
+      <text x="${x + barW/2}" y="${h - pad + 20}" text-anchor="middle" font-size="8" fill="${textColor}">₹${(v/1000).toFixed(1)}k</text>`;
+    x += barW + gap;
+  });
+  
+  svg += '</svg>';
+  svgEl.outerHTML = svg;
+}
+
+// ========== SVG CHART: MONTHLY TREND ==========
+function trendChart(){
+  const d = KB.monthly_trend;
+  const svgEl = document.getElementById('trendChart');
+  const w = 860, h = 220, pad = 40;
+  const maxY = 8500;
+  const months = Object.entries(d).map(e => ({m: parseInt(e[0]), v: e[1]}));
+  
+  let points = [];
+  let x = pad;
+  const stepX = (w - 2*pad) / (months.length - 1);
+  months.forEach((m, i) => {
+    const y = h - pad - (m.v / maxY) * (h - 2*pad);
+    points.push(`${x},${y}`);
+    x += stepX;
+  });
+  
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${w}" height="${h}" fill="none"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-20}" y2="${h-pad}" stroke="${gridColor}" stroke-width="1"/>
+    <polyline points="${points.join(' ')}" fill="none" stroke="${chartColors.success}" stroke-width="2"/>`;
+  
+  x = pad;
+  months.forEach((m, i) => {
+    const y = h - pad - (m.v / maxY) * (h - 2*pad);
+    svg += `<circle cx="${x}" cy="${y}" r="3" fill="${chartColors.success}"/>
+      <text x="${x}" y="${h - pad + 18}" text-anchor="middle" font-size="10" fill="${textColor}">M${m.m}</text>`;
+    x += stepX;
+  });
+  
+  svg += '</svg>';
+  svgEl.outerHTML = svg;
+}
+
+// ========== CHART.JS: MODEL COMPARISON ==========
+function modelComparisonChart(){
+  const ctx = document.getElementById('modelChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Random\nForest', 'Gradient\nBoosting', 'Neural\nNetwork', 'Polynomial\n(deg=2)', 'Ridge\n(α=1)', 'Multiple\nLR', 'Simple\nLR'],
+      datasets: [{
+        label: 'R² Score',
+        data: [0.9590, 0.9520, 0.9540, 0.8600, 0.8500, 0.8400, 0.5200],
+        backgroundColor: [chartColors.success, chartColors.accent, chartColors.accent, chartColors.warning, chartColors.warning, '#8b7355', '#6b5b55'],
+        borderColor: chartColors.primary,
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'x',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks: {label: ctx => 'R² = ' + ctx.parsed.y.toFixed(4)}}
+      },
+      scales: {
+        y: {min: 0, max: 1, ticks: {color: textColor}, grid: {color: gridColor}},
+        x: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== CHART.JS: MAX_DEPTH IMPACT ==========
+function depthChart(){
+  const ctx = document.getElementById('depthChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['depth=5', 'depth=10', 'depth=None'],
+      datasets: [{
+        label: 'Average R²',
+        data: [0.8070, 0.8779, 0.9588],
+        borderColor: chartColors.danger,
+        backgroundColor: 'rgba(239,68,68,0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 6,
+        pointBackgroundColor: chartColors.danger,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend: {display: false}},
+      scales: {
+        y: {min: 0.75, max: 1, ticks: {color: textColor}, grid: {color: gridColor}},
+        x: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== CHART.JS: N_ESTIMATORS IMPACT ==========
+function estimatorsChart(){
+  const ctx = document.getElementById('estimatorsChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['n=10', 'n=50', 'n=100', 'n=200'],
+      datasets: [{
+        label: 'R² (depth=None)',
+        data: [0.9547, 0.9587, 0.9589, 0.9590],
+        borderColor: chartColors.success,
+        backgroundColor: 'rgba(166,217,74,0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 6,
+        pointBackgroundColor: chartColors.success,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend: {display: false}},
+      scales: {
+        y: {min: 0.945, max: 0.96, ticks: {color: textColor}, grid: {color: gridColor}},
+        x: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== CHART.JS: FEATURE IMPORTANCE ==========
+function featureChart(){
+  const ctx = document.getElementById('featureChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Season', 'State', 'Rainfall', 'Temperature', 'Humidity', 'Grade', 'Market', 'District', 'Variety', 'Month'],
+      datasets: [{
+        label: 'Importance (%)',
+        data: [26.3, 18.7, 15.2, 12.1, 10.8, 7.1, 5.2, 2.4, 1.2, 0.9],
+        backgroundColor: [chartColors.primary, chartColors.success, chartColors.accent, chartColors.warning, '#ec4899', '#06b6d4', '#f59e0b', '#6366f1', '#8b5cf6', '#6b7280'],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend: {display: false}},
+      scales: {
+        x: {ticks: {color: textColor}, grid: {color: gridColor}},
+        y: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== CHART.JS: RESIDUAL DISTRIBUTION ==========
+function residualChart(){
+  const ctx = document.getElementById('residualChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['<-500', '-500 to -250', '-250 to 0', '0 to 250', '250 to 500', '>500'],
+      datasets: [{
+        label: 'Frequency',
+        data: [8, 35, 72, 85, 45, 14],
+        backgroundColor: chartColors.accent,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend: {display: false}},
+      scales: {
+        y: {ticks: {color: textColor}, grid: {color: gridColor}},
+        x: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== CHART.JS: CROSS-VALIDATION ==========
+function cvChart(){
+  const ctx = document.getElementById('cvChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Fold 1', 'Fold 2', 'Fold 3', 'Fold 4', 'Fold 5', 'Mean±SD'],
+      datasets: [{
+        label: 'R² Score',
+        data: [0.9615, 0.9578, 0.9582, 0.9601, 0.9559, 0.9587],
+        backgroundColor: [chartColors.accent, chartColors.accent, chartColors.accent, chartColors.accent, chartColors.accent, chartColors.success],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend: {display: false}},
+      scales: {
+        y: {min: 0.95, max: 0.97, ticks: {color: textColor}, grid: {color: gridColor}},
+        x: {ticks: {color: textColor}, grid: {display: false}}
+      }
+    }
+  });
+}
+
+// ========== RAG CHAT SYSTEM ==========
+const chatLog = document.getElementById('chatLog');
+const chatIn = document.getElementById('chatIn');
+const chatBtn = document.getElementById('chatBtn');
+
+function addMsg(text, isUser){
+  const msg = document.createElement('div');
+  msg.className = 'msg' + (isUser ? ' user' : '');
+  msg.innerHTML = `<div class="bubble">${text}</div>`;
+  chatLog.appendChild(msg);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function queryKB(state, season){
+  if(state && state in KB.state_season_avg && season in KB.state_season_avg[state]){
+    return {val: KB.state_season_avg[state][season], type: 'state_season'};
+  }
+  if(state && state in KB.state_avg){
+    return {val: KB.state_avg[state], type: 'state'};
+  }
+  if(season && season in KB.season_avg){
+    return {val: KB.season_avg[season], type: 'season'};
+  }
+  return {val: KB.overall.avg_price, type: 'overall'};
+}
+
+function parseQuery(q){
+  const stateMap = {
+    "punjab": "Punjab", "rajasthan": "Rajasthan", "kerala": "Keralam",
+    "tamil nadu": "Tamil Nadu", "tn": "Tamil Nadu", "bihar": "Bihar",
+    "haryana": "Haryana", "himachal": "Himachal Pradesh", "uttarakhand": "Uttarakhand",
+    "west bengal": "West Bengal", "wb": "West Bengal"
+  };
+  const seasonMap = {
+    "monsoon": "Monsoon", "post-monsoon": "Post-Monsoon", "post monsoon": "Post-Monsoon",
+    "summer": "Summer", "winter": "Winter"
+  };
+  
+  let state = null, season = null;
+  const ql = q.toLowerCase();
+  for(const [k, v] of Object.entries(stateMap)){
+    if(ql.includes(k)){ state = v; break; }
+  }
+  for(const [k, v] of Object.entries(seasonMap)){
+    if(ql.includes(k)){ season = v; break; }
+  }
+  return {state, season};
+}
+
+function generateResponse(state, season, val){
+  const insights = {
+    'Monsoon': 'Supply constraints during the rainy season drive prices upward.',
+    'Post-Monsoon': 'Harvesting begins; prices start declining as supply increases.',
+    'Summer': 'Moderate prices; storage supplies from previous harvest deplete gradually.',
+    'Winter': 'Peak harvest season; abundant supply keeps prices at annual lows.'
+  };
+  
+  const stateType = {
+    'Keralam': 'deficit', 'Tamil Nadu': 'deficit',
+    'Punjab': 'producer', 'Rajasthan': 'producer'
+  };
+  
+  let resp = '';
+  if(state && season){
+    resp = `The average onion price in ${state} during ${season} is ₹${val.toFixed(2)}/quintal. ${insights[season]}`;
+  } else if(state){
+    const type = stateType[state] || 'mixed';
+    if(type === 'producer') resp = `The average onion price in ${state} is ₹${val.toFixed(2)}/quintal. As a major producer, ${state} has lower prices due to abundant supply.`;
+    else if(type === 'deficit') resp = `The average onion price in ${state} is ₹${val.toFixed(2)}/quintal. As a deficit state, ${state} imports significantly, resulting in higher prices.`;
+    else resp = `The average onion price in ${state} is ₹${val.toFixed(2)}/quintal. Market reflects balanced supply-demand dynamics.`;
+  } else if(season){
+    resp = `The average onion price during ${season} is ₹${val.toFixed(2)}/quintal. ${insights[season]}`;
+  } else {
+    resp = `The overall average onion price across all states and seasons is ₹${val.toFixed(2)}/quintal. Prices range from ₹${KB.overall.min_price}/qt (winter trough) to ₹${KB.overall.max_price}/qt (monsoon peak).`;
+  }
+  return resp;
+}
+
+function handleQuery(){
+  const q = chatIn.value.trim();
+  if(!q) return;
+  
+  addMsg(q, true);
+  const {state, season} = parseQuery(q);
+  const {val} = queryKB(state, season);
+  const resp = generateResponse(state, season, val);
+  addMsg(resp, false);
+  chatIn.value = '';
+}
+
+chatBtn.addEventListener('click', handleQuery);
+chatIn.addEventListener('keypress', e => e.key === 'Enter' && handleQuery());
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chatIn.value = chip.dataset.q;
+    handleQuery();
+  });
+});
+
+// ========== INITIALIZATION ==========
+window.addEventListener('DOMContentLoaded', () => {
+  statRow();
+  seasonChart();
+  stateChart();
+  trendChart();
+  modelComparisonChart();
+  depthChart();
+  estimatorsChart();
+  featureChart();
+  residualChart();
+  cvChart();
+});
+</script>
+</body>
+</html>

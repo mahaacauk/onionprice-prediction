@@ -71,13 +71,6 @@ jupyter notebook ML_ASSIGNMENT_2_DOCUMENTED.ipynb
 ```
 Run all cells top to bottom (Kernel → Restart Kernel and Run All Cells).
 
-## How to Publish the Live Dashboard (GitHub Pages)
-
-1. Push all files in this folder to a new GitHub repository.
-2. Go to the repo's **Settings → Pages**.
-3. Under "Build and deployment," set **Source: Deploy from a branch**, branch: `main`, folder: `/ (root)`. Save.
-4. GitHub will publish a link like `https://<your-username>.github.io/<repo-name>/` within a minute or two.
-5. Share that link — anyone who opens it can type a price question and get an answer instantly, no setup needed on their end.
 
 ## Limitations
 
